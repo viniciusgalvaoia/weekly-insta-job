@@ -50,15 +50,14 @@ def get_media_metrics(base, media_id_list, access_token):
     return metrics_list
 
 
-# comments text
 def get_media_comments(base, media_id_list, access_token):
-    metrics_list = []
     parameters = f"/comments?access_token={access_token}"
+    media_comments_dict = dict()
     for media_id in media_id_list:
         media_node = f"/{media_id}"
         url = build_url(base, media_node, parameters)
-        metrics_list.append(request_data(url))
-    return metrics_list
+        media_comments_dict[media_id] = request_data(url)
+    return media_comments_dict
 
 
 def get_token():
@@ -86,12 +85,7 @@ def format_folder_path(table_path: str, date: str, logger) -> str:
         Returns:
             The formatted folder path, with year and month included.
         Raises:
-            UnboundLocalError: in case that the date passed as a parameter is None
-        Examples:
-            ```python
-            from job import __main__ as main
-            main.format_folder_path("s3://pd-datalake-us-east-2-dev/bi_databases/MaterialRevenue", "2021-01-01")
-            > 's3://pd-datalake-us-east-2-dev/bi_databases/MaterialRevenue/year=2021/month=1'
+            ValueError: in case that the date passed as a parameter is None
             ```
         """
     try:
@@ -123,14 +117,13 @@ def write_to_s3(df: pd.DataFrame, s3_path: str, local_config: dict, logger) -> d
         """
     logger.info(f"SAVING RESULTS AT {s3_path}")
     boto3_session = boto3.Session(
-        aws_access_key_id=local_config.get("AWS_ACCESS_KEY_ID_DATA_API"),
-        aws_secret_access_key=local_config.get("AWS_SECRET_ACCESS_KEY_DATA_API"),
+        aws_access_key_id=local_config.get("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=local_config.get("AWS_SECRET_ACCESS_KEY"),
     )
 
     return wr.s3.to_parquet(
         df=df,
         path=s3_path,
-        dtype={"Revenue": "decimal(5,2)"},  # used to force type of Revenue column
         mode="overwrite",
         dataset=True,
         boto3_session=boto3_session,
