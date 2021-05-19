@@ -1,5 +1,5 @@
 """
-Main module of the weeklt-insta-job project.
+Main module of the weekly-insta-job project.
 
 """
 
@@ -7,6 +7,7 @@ import configparser
 import logging
 import os
 from datetime import datetime
+from typing import Dict
 
 import pandas as pd
 from ig_helpers import (
@@ -31,6 +32,30 @@ logging.basicConfig(
 )
 install()
 logger = logging.getLogger("main")
+
+
+def process_media_metrics(media_metrics: Dict[str, str]) -> pd.DataFrame:
+    media_metrics_list = []
+    for media_metric in media_metrics:
+        media_metrics_dict = dict()
+        media_id = media_metric["data"][0]["id"].split("/")[0]
+        media_metrics_dict["media_id"] = media_id
+        for metric in media_metric["data"]:
+            media_metrics_dict[metric["name"]] = metric["values"][0]["value"]
+        media_metrics_list.append(media_metrics_dict)
+    return pd.DataFrame(media_metrics_list)
+
+
+def process_media_comments(media_comments):
+    media_comments_list = []
+    for media_comments_key, media_comments_value in media_comments.items():
+        if media_comments_value["data"]:
+            for comments in media_comments_value["data"]:
+                media_comments_dict = dict()
+                media_comments_dict["media_id"] = media_comments_key
+                media_comments_dict.update(comments)
+                media_comments_list.append(media_comments_dict)
+    return pd.DataFrame(media_comments_list)
 
 
 if __name__ == "__main__":
@@ -72,15 +97,7 @@ if __name__ == "__main__":
 
     logger.info(f"REQUESTING MEDIA METRICS ...")
     media_metrics = get_media_metrics(base, media_id_list, access_token)
-    media_metrics_list = []
-    for media_metric in media_metrics:
-        media_metrics_dict = dict()
-        media_id = media_metric["data"][0]["id"].split("/")[0]
-        media_metrics_dict["media_id"] = media_id
-        for metric in media_metric["data"]:
-            media_metrics_dict[metric["name"]] = metric["values"][0]["value"]
-        media_metrics_list.append(media_metrics_dict)
-    media_metrics_df = pd.DataFrame(media_metrics_list)
+    media_metrics_df = process_media_metrics(media_metrics)
     media_metrics_bucket_name = f"{data_lake_bucket_name}/MediaMetrics"
     write_to_s3(
         media_metrics_df,
@@ -91,15 +108,7 @@ if __name__ == "__main__":
 
     logger.info(f"REQUESTING MEDIA COMMENTS ...")
     media_comments = get_media_comments(base, media_id_list, access_token)
-    media_comments_list = []
-    for media_comments_key, media_comments_value in media_comments.items():
-        if media_comments_value["data"]:
-            for comments in media_comments_value["data"]:
-                media_comments_dict = dict()
-                media_comments_dict["media_id"] = media_comments_key
-                media_comments_dict.update(comments)
-                media_comments_list.append(media_comments_dict)
-    media_comments_df = pd.DataFrame(media_comments_list)
+    media_comments_df = process_media_comments(media_comments)
     media_comments_bucket_name = f"{data_lake_bucket_name}/MediaComments"
     write_to_s3(
         media_comments_df,
